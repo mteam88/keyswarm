@@ -8,4 +8,7 @@ RUN go mod download && go mod verify
 
 COPY . .
 
-# Then run: "./xkeygen eth "
+RUN go build -o keyswarm .
+ENTRYPOINT ./keyswarm
+
+# Then run: "./xkeygen eth page"
