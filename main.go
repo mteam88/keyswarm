@@ -8,12 +8,18 @@ import (
 	"crypto/rand"
 	"math/big"
 	"net/http"
+	"log"
+	"context"
+
+	"github.com/ethereum/go-ethereum/common"
+    "github.com/ethereum/go-ethereum/ethclient"
 )
 
 //config
 const HQ="http://localhost:8000/"
 const producerCount int = 8
 const minimumBalanceWei int = 1
+const InfuraKey string = ""
 
 
 func main() {
@@ -37,7 +43,6 @@ func generatekeys(jobs chan<- []string, idx int, wg *sync.WaitGroup) {
 	for {
 		page := new(big.Int)
 		page.SetBytes(generateRandomBytes(249/8))
-		fmt.Println(page)
 
 		out, err := exec.Command("./xkeygen", "eth", page.String()).Output()
 		if err != nil {
@@ -66,7 +71,17 @@ func hasbalance(keypair []string) bool {
 }
 
 func getbalance(keypair []string) int { //returns wei balance of keypair
-	return 6000
+	client, err := ethclient.Dial("https://mainnet.infura.io/v3/" + InfuraKey)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    account := common.HexToAddress(keypair[1])
+    balance, err := client.BalanceAt(context.Background(), account, nil)
+    if err != nil {
+        log.Fatal(err)
+    }
+	return int(balance.Int64())
 }
 
 func generateRandomBytes(n int) ([]byte) {
