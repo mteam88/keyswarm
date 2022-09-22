@@ -10,17 +10,18 @@ import (
 	"net/http"
 	"log"
 	"context"
+	mathrand "math/rand"
 
 	"github.com/ethereum/go-ethereum/common"
     "github.com/ethereum/go-ethereum/ethclient"
+	_ "github.com/joho/godotenv/autoload"
 )
 
 //config
 const HQ="http://localhost:8000/"
 const producerCount int = 8
 const minimumBalanceWei int = 1
-const InfuraKey string = ""
-
+var InfuraKeys []string = 
 
 func main() {
 	jobs := make(chan []string)
@@ -67,11 +68,12 @@ func callhome(jobs <-chan []string, done chan<- bool) {
 }
 
 func hasbalance(keypair []string) bool {
-	return getbalance(keypair) > minimumBalanceWei
+	return getbalance(keypair) >= minimumBalanceWei
 }
 
 func getbalance(keypair []string) int { //returns wei balance of keypair
-	client, err := ethclient.Dial("https://mainnet.infura.io/v3/" + InfuraKey)
+	infuraKey := InfuraKeys[mathrand.Intn(len(InfuraKeys))]
+	client, err := ethclient.Dial("https://mainnet.infura.io/v3/" + infuraKey)
     if err != nil {
         log.Fatal(err)
     }
