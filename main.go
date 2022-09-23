@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"log"
@@ -68,7 +67,7 @@ func generatekeys(generatedkeys chan []string, keyswithbalance chan []string, id
 
 		// Get the private key
 		privateKey := hex.EncodeToString(key.D.Bytes())
-		generatedkeys <-[]string{privateKey, address}
+		generatedkeys <- []string{privateKey, address}
 	}
 }
 
