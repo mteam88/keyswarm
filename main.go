@@ -141,5 +141,8 @@ func loadETHProviders() []ETHProvider {
 		InfuraKeys = append(InfuraKeys, ETHProvider{"https://mainnet.infura.io/v3/" + key, false})
 	}
 	ETHProviders = append(ETHProviders, InfuraKeys...)
+	if len(ETHProviders) == 0 {
+		panic("Please provide some api keys. You may need a .env file. See the docs.")
+	}
 	return ETHProviders
 }
