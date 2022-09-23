@@ -19,13 +19,15 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 )
 
-//config
+// config
 const HQ="http://localhost:8000/"
 const producerCount int = 8
 const minimumBalanceWei int = 1
+const reportSpeed int = 10
+
+// definitions
 var scannedkeys int = 0
 var ETHProviders []ETHProvider
-const reportSpeed int = 10
 
 func main() {
 	ETHProviders = loadETHProviders()
