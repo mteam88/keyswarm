@@ -17,4 +17,4 @@ WORKDIR /usr/src/keyswarm
 RUN go build -o xkeyswarm .
 
 
-#ENTRYPOINT ./xkeyswarm
+ENTRYPOINT ./xkeyswarm

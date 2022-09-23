@@ -22,10 +22,11 @@ import (
 const HQ="http://localhost:8000/"
 const producerCount int = 8
 const minimumBalanceWei int = 1
-var InfuraKeys []string = strings.Split(os.Getenv("INFURA_KEYS"), ",")
 var scannedkeys int = 0
+var ETHProviders []ETHProvider
 
 func main() {
+	ETHProviders = loadETHProviders()
 	genkeys := make(chan []string)
 	keyswithbalance := make(chan []string)
 	done := make(chan bool)
@@ -36,6 +37,7 @@ func main() {
 		for {
 			fmt.Println("[$] Keys Per Second: ", (sum(lastkeys)/len(lastkeys)))
 			lastkeys = append(lastkeys, scannedkeys)
+			scannedkeys = 0
 			time.Sleep(time.Second)
 		}
 	}()
@@ -95,8 +97,14 @@ func hasbalance(keypair []string) bool {
 }
 
 func getbalance(keypair []string) (int, error) { //returns wei balance of keypair
-	infuraKey := InfuraKeys[mathrand.Intn(len(InfuraKeys))]
-	client, err := ethclient.Dial("https://mainnet.infura.io/v3/" + infuraKey)
+	var ethprovider ETHProvider
+	for {
+		ethprovider = ETHProviders[mathrand.Intn(len(ETHProviders))]
+		if (!ethprovider.isMax) {
+			break
+		}
+	}
+	client, err := ethclient.Dial(ethprovider.RawURL)
     if err != nil {
         return -1, err
     }
@@ -104,6 +112,9 @@ func getbalance(keypair []string) (int, error) { //returns wei balance of keypai
     account := common.HexToAddress(keypair[1])
     balance, err := client.BalanceAt(context.Background(), account, nil)
     if err != nil {
+		if (strings.Contains(err.Error(), "429")) {
+			ethprovider.isMax = true
+		}
         return -1, err
     }
 	return int(balance.Int64()), nil
@@ -145,3 +156,18 @@ func sum(array []int) int {
 	}  
 	return result  
    }
+
+type ETHProvider struct {
+	RawURL string
+	isMax bool
+}
+
+func loadETHProviders() []ETHProvider {
+	RawInfuraKeys := strings.Split(os.Getenv("INFURA_KEYS"), ",")
+	InfuraKeys := []ETHProvider{}
+	for _, key := range RawInfuraKeys {
+		InfuraKeys = append(InfuraKeys, ETHProvider{"https://mainnet.infura.io/v3/" + key, false})
+	}
+	ETHProviders = append(ETHProviders, InfuraKeys...)
+	return ETHProviders
+}
