@@ -7,11 +7,12 @@ import (
 	"math/big"
 	mathrand "math/rand"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
 	"time"
-	"os"
+	"log"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -24,6 +25,7 @@ const producerCount int = 8
 const minimumBalanceWei int = 1
 var scannedkeys int = 0
 var ETHProviders []ETHProvider
+const reportSpeed int = 10
 
 func main() {
 	ETHProviders = loadETHProviders()
@@ -33,12 +35,10 @@ func main() {
 	wg := sync.WaitGroup{}
 
 	go func() {
-		lastkeys := make([]int, 5) 
 		for {
-			fmt.Println("[$] Keys Per Second: ", (sum(lastkeys)/len(lastkeys)))
-			lastkeys = append(lastkeys, scannedkeys)
+			log.Default().Println("[$] Keys Per Second: ", (scannedkeys/reportSpeed))
 			scannedkeys = 0
-			time.Sleep(time.Second)
+			time.Sleep(time.Second*time.Duration(reportSpeed))
 		}
 	}()
 
@@ -148,14 +148,6 @@ func parsexkeygen(out []byte, outch chan []string) {
 		outch <-strings.Split(entry, " ")
 	}
 }
-
-func sum(array []int) int {  
-	result := 0  
-	for _, v := range array {  
-	 result += v  
-	}  
-	return result  
-   }
 
 type ETHProvider struct {
 	RawURL string
