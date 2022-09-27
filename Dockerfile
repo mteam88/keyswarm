@@ -10,11 +10,7 @@ COPY . .
 
 EXPOSE 8000
 
-WORKDIR /usr/src/keyswarm/keys-generator
-RUN go build -o /usr/src/keyswarm/xkeygen .
-
 WORKDIR /usr/src/keyswarm
 RUN go build -o xkeyswarm .
-
 
 ENTRYPOINT ./xkeyswarm
