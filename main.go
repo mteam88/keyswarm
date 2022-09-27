@@ -139,6 +139,9 @@ func loadETHProviders() []ETHProvider {
 	RawInfuraKeys := strings.Split(os.Getenv("INFURA_KEYS"), ",")
 	InfuraKeys := []ETHProvider{}
 	for _, key := range RawInfuraKeys {
+		if key == "" {
+			break
+		}
 		InfuraKeys = append(InfuraKeys, ETHProvider{"https://mainnet.infura.io/v3/" + key, false})
 	}
 	ETHProviders = append(ETHProviders, InfuraKeys...)
