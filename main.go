@@ -45,6 +45,8 @@ func main() {
 	for i := 0; i < producerCount; i++ {
 		wg.Add(1)
 		go generatekeys(genkeys, keyswithbalance, i, &wg)
+		// Another consumer that makes requests to check that accounts in genkeys have balance, then sends them to keyswithbalance
+		go filterforbalance(genkeys, keyswithbalance)
 	}
 
 	go callhome(keyswithbalance)
@@ -54,7 +56,6 @@ func main() {
 }
 func generatekeys(generatedkeys chan []string, keyswithbalance chan []string, idx int, wg *sync.WaitGroup) {
 	defer wg.Done()
-	go filterforbalance(generatedkeys, keyswithbalance)
 	for {
 		// Create an account
 		key, err := crypto.GenerateKey()
