@@ -23,3 +23,6 @@ Support for non-infura web3 providers is in development.
 $ keyswarm
 ```
 Enjoy!
+
+### Dev Commands
+`docker run --volume /workspaces/keyswarm:/usr/home/keyswarm --workdir /usr/home/keyswarm -it --rm golang`
