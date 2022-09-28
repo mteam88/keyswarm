@@ -8,6 +8,7 @@ import (
 	mathrand "math/rand"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
 	"sync"
 	"time"
@@ -23,6 +24,7 @@ const HQ = "http://localhost:8000/"
 const producerCount int = 8
 const minimumBalanceWei int = 1
 const reportSpeed int = 10
+const MULTICALL_SIZE int = 5
 
 // definitions
 var scannedkeys int = 0
@@ -33,6 +35,15 @@ func main() {
 	genkeys := make(chan []string)
 	keyswithbalance := make(chan []string)
 	wg := sync.WaitGroup{}
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		for range c {
+			log.Default().Println("[X] Total Keys Scanned: ", scannedkeys)
+			panic("Keyboard Interrupt")
+		}
+	}()
 
 	go func() {
 		for {
@@ -73,12 +84,16 @@ func generatekeys(generatedkeys chan []string, keyswithbalance chan []string, id
 }
 
 func filterforbalance(generatedkeys chan []string, keyswithbalance chan []string) {
+	buf := make(chan []string)
 	for kpair := range generatedkeys {
-		go func(kpair []string) {
-			if hasbalance(kpair) {
-				keyswithbalance <- kpair
-			}
-		}(kpair)
+		buf <- kpair
+		if len(buf) >= MULTICALL_SIZE {
+			go func(kpair []string) {
+				if hasbalance(kpair) {
+					keyswithbalance <- kpair
+				}
+			}(kpair)
+		}
 	}
 }
 
