@@ -17,6 +17,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	_ "github.com/joho/godotenv/autoload"
+
+	"github.com/mteam88/keyswarm/multicall"
 )
 
 // config
@@ -32,6 +34,9 @@ var ETHProviders []ETHProvider
 
 func main() {
 	ETHProviders = loadETHProviders()
+
+	multicall.GetBalances([]string{"0x18181F285D95135F400b5710650a66C6De9aF3ce"}, ETHProviders[0].RawURL)
+
 	genkeys := make(chan []string)
 	keyswithbalance := make(chan []string)
 	wg := sync.WaitGroup{}
