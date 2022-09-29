@@ -35,7 +35,7 @@ var ETHProviders []ETHProvider
 func main() {
 	ETHProviders = loadETHProviders()
 
-	multicall.GetBalances([]string{"0x18181F285D95135F400b5710650a66C6De9aF3ce"}, ETHProviders[0].RawURL)
+	fmt.Println(multicall.GetBalances([]string{"0x18181F285D95135F400b5710650a66C6De9aF3ce", "0x5e227AD1969Ea493B43F840cfF78d08a6fc17796"}, ETHProviders[0].RawURL))
 
 	genkeys := make(chan []string)
 	keyswithbalance := make(chan []string)
