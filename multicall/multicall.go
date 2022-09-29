@@ -2,6 +2,7 @@ package multicall
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"os"
 
@@ -32,27 +33,27 @@ func GetBalances(addresses []string, ETHProviderURL string) ([]big.Int, error) {
 	}
 
 	type Call struct {
-        target common.Address;
+        target string;
         callData []byte;
     }
 
 	var calldatas []Call;
 	for _, address := range addresses {
 		individualcalldata, err := multicallContractABI.Pack("getEthBalance", common.HexToAddress(address))
-		calldatas = append(calldatas, Call{multicallContractAddress, individualcalldata})
+		calldatas = append(calldatas, Call{multicallContractAddress.String(), individualcalldata})
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	calldata, err := multicallContractABI.Pack("aggregate", calldatas)
-	if err != nil {
-		panic(err)
+	m, exists := multicallContractABI.Methods["aggregate"]
+	if exists {
+		fmt.Println(m.Inputs.Pack(calldatas))
 	}
 
 	var callmsg ethereum.CallMsg
 	callmsg.To = &multicallContractAddress
-	callmsg.Data = calldata
+//	callmsg.Data = calldata
 
 	result, err := ethProvider.CallContract(context.Background(), callmsg, nil)
 	if err != nil {
