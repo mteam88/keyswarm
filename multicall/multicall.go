@@ -33,34 +33,42 @@ func GetBalances(addresses []string, ETHProviderURL string) ([]big.Int, error) {
 	}
 
 	type Call struct {
-        target string;
-        callData []byte;
-    }
+		Target   common.Address
+		CallData []byte
+	}
 
-	var calldatas []Call;
+	var calldatas []Call
 	for _, address := range addresses {
 		individualcalldata, err := multicallContractABI.Pack("getEthBalance", common.HexToAddress(address))
-		calldatas = append(calldatas, Call{multicallContractAddress.String(), individualcalldata})
+		calldatas = append(calldatas, Call{multicallContractAddress, individualcalldata})
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	m, exists := multicallContractABI.Methods["aggregate"]
-	if exists {
-		fmt.Println(m.Inputs.Pack(calldatas))
+	calldata, err := multicallContractABI.Pack("aggregate", calldatas)
+	if err != nil {
+		panic(err)
 	}
 
 	var callmsg ethereum.CallMsg
 	callmsg.To = &multicallContractAddress
-//	callmsg.Data = calldata
+	callmsg.Data = calldata
 
-	result, err := ethProvider.CallContract(context.Background(), callmsg, nil)
+	rawresult, err := ethProvider.CallContract(context.Background(), callmsg, nil)
 	if err != nil {
 		panic(err)
 	}
+
+	result, err := multicallContractABI.Methods["aggregator"].Outputs.UnpackValues(rawresult)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Result:", result)
+	
 	intBalance := new(big.Int)
-	intBalance.SetBytes(result)
+	intBalance.SetBytes(rawresult)
 	balances = append(balances, *intBalance)
 	return balances, nil
 }
