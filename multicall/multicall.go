@@ -1,44 +1,57 @@
 package multicall
 
 import (
-	"fmt"
+	"context"
+	"math/big"
+	"os"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	_ "github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/params"
 )
 
 var multicallContractAddress = common.HexToAddress("0x5e227AD1969Ea493B43F840cfF78d08a6fc17796")
-var multicallContractEthBalanceSelector = "4d2301cc"
 
-func GetBalances(addresses []string, ETHProviderURL string) ([]string, error) {
+//var multicallContractEthBalanceSelector = "4d2301cc"
+
+func GetBalances(addresses []string, ETHProviderURL string) ([]big.Float, error) {
+	var balances []big.Float
 	ethProvider, err := ethclient.Dial(ETHProviderURL)
 	if err != nil {
 		panic(err)
 	}
-	multicallContract, err := NewMulticallCaller(multicallContractAddress, ethProvider)
+
+	abiReader, err := os.Open("/workspaces/keyswarm/multicall/multicallContract.abi")
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println("multicallContract: ", multicallContract)
+	multicallContractABI, err := abi.JSON(abiReader)
+	if err != nil {
+		panic(err)
+	}
 
-	var calls = []MulticallCall{}
 	for _, address := range addresses {
-		hashAddress := common.HexToHash(address)
-		call := MulticallCall{multicallContractAddress, []byte("0x" + multicallContractEthBalanceSelector + hashAddress.String()[2:])}
-		calls = append(calls, call)
+		calldata, err := multicallContractABI.Pack("getEthBalance", common.HexToAddress(address))
+		if err != nil {
+			panic(err)
+		}
+	
+		var callmsg ethereum.CallMsg
+		callmsg.To = &multicallContractAddress // the destination contract (nil for contract creation)
+		callmsg.Data = calldata
+	
+		result, err := ethProvider.CallContract(context.Background(), callmsg, nil)
+		if err != nil {
+			panic(err)
+		}
+		intBalance := new(big.Int)
+		intBalance.SetBytes(result)
+		floatWeiBalance := new(big.Float).SetInt(intBalance)
+		floatWeiBalance.Quo(floatWeiBalance, new(big.Float).SetFloat64(params.Ether))
+		balances = append(balances, *floatWeiBalance)
 	}
-
-	fmt.Println(string(calls[0].CallData))
-
-	var results []byte
-
-	//err = multicallContract.contract.Call(&bind.CallOpts{}, results, "aggregate", common.Hex2Bytes(addresses[0]))
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Result: ", &results)
-	return nil, nil
+	return balances, nil
 }
