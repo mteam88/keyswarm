@@ -2,7 +2,6 @@ package multicall
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"os"
 
@@ -60,15 +59,16 @@ func GetBalances(addresses []string, ETHProviderURL string) ([]big.Int, error) {
 		panic(err)
 	}
 
-	result, err := multicallContractABI.Methods["aggregator"].Outputs.UnpackValues(rawresult)
+	result, err := multicallContractABI.Methods["aggregate"].Outputs.UnpackValues(rawresult)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println("Result:", result)
-	
-	intBalance := new(big.Int)
-	intBalance.SetBytes(rawresult)
-	balances = append(balances, *intBalance)
+	for _, rawBalance := range result[1].([][]byte) {
+		intBalance := new(big.Int)
+		intBalance.SetBytes(rawBalance)
+		balances = append(balances, *intBalance)
+	}
+
 	return balances, nil
 }
