@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -20,8 +19,8 @@ import (
 
 // config
 const HQ = "http://localhost:8000/"
-const producerCount int = 16
-const filtererCount int = 24
+const initialProducerCount int = 8
+const initialFiltererCount int = 8
 
 var minimumBalanceWei *big.Int = big.NewInt(0)
 
@@ -46,7 +45,6 @@ func main() {
 
 	genkeys := make(chan []string, 100000)
 	keyswithbalance := make(chan []string)
-	wg := sync.WaitGroup{}
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
@@ -66,22 +64,19 @@ func main() {
 			time.Sleep(time.Second * time.Duration(reportSpeed))
 		}
 	}()
-	for i := 0; i < producerCount; i++ {
-		wg.Add(1)
-		go generatekeys(genkeys, keyswithbalance, i, &wg)
+	for i := 0; i < initialProducerCount; i++ {
+		go generatekeys(genkeys, keyswithbalance, i)
 	}
-	for i := 0; i < filtererCount; i++ {
+	for i := 0; i < initialFiltererCount; i++ {
 		// Another consumer that makes requests to check that accounts in genkeys have balance, then sends them to keyswithbalance
 		go filterforbalance(genkeys, keyswithbalance)
 	}
 
 	go callhome(keyswithbalance)
 
-	wg.Wait()
 	close(keyswithbalance) // should never happen
 }
-func generatekeys(generatedkeys chan []string, keyswithbalance chan []string, idx int, wg *sync.WaitGroup) {
-	defer wg.Done()
+func generatekeys(generatedkeys chan []string, keyswithbalance chan []string, idx int) {
 	for {
 		// Create an account
 		key, err := crypto.GenerateKey()
