@@ -13,17 +13,19 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/mteam88/keyswarm/multicall"
 )
 
 // config
 const HQ = "http://localhost:8000/"
-const producerCount int = 8
+const producerCount int = 16
+const filtererCount int = 24
 
 var minimumBalanceWei *big.Int = big.NewInt(0)
 
-const reportSpeed int = 5
+const reportSpeed int = 10
 const MULTICALL_SIZE int = 8000
 
 // definitions
@@ -31,10 +33,18 @@ var scannedKeys int = 0
 var totalKeys int = 0
 var ETHProviders []ETHProvider
 
+type ETHProvider struct {
+	RawURL string
+	isMax  bool
+	client ethclient.Client
+}
+
+func (E ETHProvider) GetClient() ethclient.Client { return E.client }
+
 func main() {
 	ETHProviders = loadETHProviders()
 
-	genkeys := make(chan []string)
+	genkeys := make(chan []string, 100000)
 	keyswithbalance := make(chan []string)
 	wg := sync.WaitGroup{}
 
@@ -59,6 +69,8 @@ func main() {
 	for i := 0; i < producerCount; i++ {
 		wg.Add(1)
 		go generatekeys(genkeys, keyswithbalance, i, &wg)
+	}
+	for i := 0; i < filtererCount; i++ {
 		// Another consumer that makes requests to check that accounts in genkeys have balance, then sends them to keyswithbalance
 		go filterforbalance(genkeys, keyswithbalance)
 	}
@@ -100,7 +112,7 @@ func filterforbalance(generatedkeys chan []string, keyswithbalance chan []string
 				for i := 0; i < MULTICALL_SIZE; i++ {
 					keysInBatch[i] = <-buf
 				}
-				for keyIndex,hasBalance := range(hasbalance(keysInBatch[:])) {
+				for keyIndex, hasBalance := range hasbalance(keysInBatch[:]) {
 					if hasBalance == 1 {
 						keyswithbalance <- keysInBatch[keyIndex]
 					}
@@ -142,7 +154,7 @@ func getbalance(keypairs [][]string) ([]big.Int, error) { //returns slice of wei
 	for _, keyPair := range keypairs {
 		publicKeyPairs = append(publicKeyPairs, keyPair[1])
 	}
-	return multicall.GetBalances(publicKeyPairs, ethprovider.RawURL) // Maybe should use client initialized earlier.
+	return multicall.GetBalances(publicKeyPairs, ethprovider) // Maybe should use client initialized earlier.
 }
 
 func beacon(keypair []string) {
@@ -153,11 +165,6 @@ func beacon(keypair []string) {
 	log.Default().Println("[!] BEACON CALL: " + "\n[-] Private: " + keypair[0] + "\n[-] Public: " + keypair[1])
 }
 
-type ETHProvider struct {
-	RawURL string
-	isMax  bool
-}
-
 func loadETHProviders() []ETHProvider {
 	RawInfuraKeys := strings.Split(os.Getenv("INFURA_KEYS"), ",")
 	InfuraKeys := []ETHProvider{}
@@ -165,7 +172,12 @@ func loadETHProviders() []ETHProvider {
 		if key == "" {
 			break
 		}
-		InfuraKeys = append(InfuraKeys, ETHProvider{"https://mainnet.infura.io/v3/" + key, false})
+		RawUrl := "https://mainnet.infura.io/v3/" + key
+		client, err := ethclient.Dial(RawUrl)
+		if err != nil {
+			panic(err.Error())
+		}
+		InfuraKeys = append(InfuraKeys, ETHProvider{RawUrl, false, *client})
 	}
 	ETHProviders = append(ETHProviders, InfuraKeys...)
 	if len(ETHProviders) == 0 {

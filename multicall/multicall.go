@@ -13,13 +13,13 @@ import (
 
 var multicallContractAddress = common.HexToAddress("0x5e227AD1969Ea493B43F840cfF78d08a6fc17796")
 
-func GetBalances(addresses []string, ETHProviderURL string) ([]big.Int, error) {
+type ETHProviderInterface interface {
+    GetClient() ethclient.Client;
+}
+func GetBalances(addresses []string, ETHProvider ETHProviderInterface) ([]big.Int, error) {
 	var balances []big.Int
 
-	ethProvider, err := ethclient.Dial(ETHProviderURL)
-	if err != nil {
-		panic(err)
-	}
+	ethProvider := ETHProvider.GetClient()
 
 	abiReader, err := os.Open("/workspaces/keyswarm/multicall/multicallContract.abi")
 	if err != nil {
