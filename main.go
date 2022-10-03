@@ -69,20 +69,17 @@ func main() {
 			scannedKeys = 0
 		}
 	}()
-	for i := 0; i < initialFiltererCount; i++ {
-		// A consumer that makes (multicall!!) requests to check that accounts in genkeys have balance, then sends them to keyswithbalance
-		go filterforbalance(genkeys, keyswithbalance)
-	}
+	go filterForBalance(genkeys, keyswithbalance)
 
 	for i := 0; i < initialGeneratorCount; i++ {
-		go generatekeys(genkeys, keyswithbalance)
+		go generateKeys(genkeys, keyswithbalance)
 	}
 
 	go callhome(keyswithbalance)
 
 	select {} // do not stop main thread
 }
-func generatekeys(generatedkeys chan []string, keyswithbalance chan []string) {
+func generateKeys(generatedkeys chan []string, keyswithbalance chan []string) {
 	atomic.AddUint32(&generators, 1)
 	for {
 		// Create an account
@@ -102,7 +99,7 @@ func generatekeys(generatedkeys chan []string, keyswithbalance chan []string) {
 			case generatedkeys <- []string{privateKey, address}:
 				break sendKey
 			default:
-				go filterforbalance(generatedkeys, keyswithbalance)
+				go filterForBalance(generatedkeys, keyswithbalance)
 			}
 		}
 	}
@@ -116,7 +113,7 @@ func fakeFilter(generatedkeys chan []string, keyswithbalance chan []string) {
 	}
 }
 
-func filterforbalance(generatedkeys chan []string, keyswithbalance chan []string) {
+func filterForBalance(generatedkeys chan []string, keyswithbalance chan []string) {
 	atomic.AddUint32(&filterers, 1)
 	buf := make(chan []string, MULTICALL_SIZE)
 	go func() {
