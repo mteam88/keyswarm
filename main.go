@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -19,18 +20,20 @@ import (
 
 // config
 const HQ = "http://localhost:8000/"
-const initialProducerCount int = 8
-const initialFiltererCount int = 8
+const initialGeneratorCount int = 4
+const initialFiltererCount int = 75
 
-var minimumBalanceWei *big.Int = big.NewInt(0)
+var minimumBalanceWei *big.Int = big.NewInt(1)
 
-const reportSpeed int = 10
+const reportSpeed int = 2 // seconds
 const MULTICALL_SIZE int = 8000
 
 // definitions
 var scannedKeys int = 0
 var totalKeys int = 0
 var ETHProviders []ETHProvider
+var generators uint32
+var filterers uint32
 
 type ETHProvider struct {
 	RawURL string
@@ -57,26 +60,30 @@ func main() {
 
 	go func() {
 		for {
-			log.Default().Println("[$] Keys Per Second: ", (scannedKeys / reportSpeed))
-			log.Default().Println("[$] Generatedkeys size: ", len(genkeys))
+			time.Sleep(time.Second * time.Duration(reportSpeed))
+			log.Default().Println("[$] Scanned Keys Per Second: ", (scannedKeys / reportSpeed))
+			log.Default().Println("[$] Overflow: ", len(genkeys))
+			log.Default().Println("[i] generators running", generators)
+			log.Default().Println("[i] filterers running", filterers)
 			totalKeys += scannedKeys
 			scannedKeys = 0
-			time.Sleep(time.Second * time.Duration(reportSpeed))
 		}
 	}()
-	for i := 0; i < initialProducerCount; i++ {
-		go generatekeys(genkeys, keyswithbalance, i)
-	}
 	for i := 0; i < initialFiltererCount; i++ {
-		// Another consumer that makes requests to check that accounts in genkeys have balance, then sends them to keyswithbalance
+		// A consumer that makes (multicall!!) requests to check that accounts in genkeys have balance, then sends them to keyswithbalance
 		go filterforbalance(genkeys, keyswithbalance)
+	}
+
+	for i := 0; i < initialGeneratorCount; i++ {
+		go generatekeys(genkeys, keyswithbalance)
 	}
 
 	go callhome(keyswithbalance)
 
-	close(keyswithbalance) // should never happen
+	select {} // do not stop main thread
 }
-func generatekeys(generatedkeys chan []string, keyswithbalance chan []string, idx int) {
+func generatekeys(generatedkeys chan []string, keyswithbalance chan []string) {
+	atomic.AddUint32(&generators, 1)
 	for {
 		// Create an account
 		key, err := crypto.GenerateKey()
@@ -89,26 +96,40 @@ func generatekeys(generatedkeys chan []string, keyswithbalance chan []string, id
 
 		// Get the private key
 		privateKey := hex.EncodeToString(key.D.Bytes())
-		generatedkeys <- []string{privateKey, address}
+		sendKey:
+		for {
+			select {
+			case generatedkeys <- []string{privateKey, address}:
+				break sendKey
+			default:
+				go filterforbalance(generatedkeys, keyswithbalance)
+			}
+		}
+	}
+}
+
+func fakeFilter(generatedkeys chan []string, keyswithbalance chan []string) {
+	atomic.AddUint32(&filterers, 1)
+	for{
+		<-generatedkeys
+		scannedKeys++
 	}
 }
 
 func filterforbalance(generatedkeys chan []string, keyswithbalance chan []string) {
+	atomic.AddUint32(&filterers, 1)
 	buf := make(chan []string, MULTICALL_SIZE)
 	go func() {
-		for kpair := range generatedkeys {
-			buf <- kpair
-		}
-	}()
-	go func() {
 		for {
-			if len(buf) >= MULTICALL_SIZE {
+			select {
+			case buf <- <-generatedkeys: // Buffer not full
+			default: // Buffer must be full, making multicall request
 				var keysInBatch [MULTICALL_SIZE][]string
 				for i := 0; i < MULTICALL_SIZE; i++ {
 					keysInBatch[i] = <-buf
 				}
 				for keyIndex, hasBalance := range hasbalance(keysInBatch[:]) {
-					if hasBalance == 1 {
+					if hasBalance == 0 || hasBalance == 1 {
 						keyswithbalance <- keysInBatch[keyIndex]
 					}
 				}
