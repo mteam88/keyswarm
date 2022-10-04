@@ -99,13 +99,6 @@ func generateKeys(generatedkeys chan []string, keyswithbalance chan []string) {
 	}
 }
 
-func fakeFilter(generatedkeys chan []string, keyswithbalance chan []string) {
-	atomic.AddUint32(&filterers, 1)
-	for {
-		<-generatedkeys
-		scannedKeys++
-	}
-}
 
 func filterForBalance(generatedkeys chan []string, keyswithbalance chan []string) chan []string {
 	atomic.AddUint32(&filterers, 1)
