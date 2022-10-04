@@ -43,6 +43,7 @@ type State struct {
 	generators               uint32
 	filterers                uint32
 	runningMulticallRequests uint32
+	completedMulticallRequests uint64
 }
 
 func (E ETHProvider) GetClient() ethclient.Client { return E.client }
@@ -76,6 +77,7 @@ func main() {
 			tm.Println("[$] Scanned Keys Per Second: ", (ScannerState.scannedKeys / reportSpeed))
 			tm.Println("[i] generators running", ScannerState.generators)
 			tm.Println("[i] requests running", ScannerState.runningMulticallRequests)
+			tm.Println("[i] requests completed", ScannerState.completedMulticallRequests)
 			tm.Flush()
 			ScannerState.totalKeys += ScannerState.scannedKeys
 			ScannerState.scannedKeys = 0
@@ -137,6 +139,7 @@ func filterForBalance(generatedkeys chan []string, keyswithbalance chan []string
 						}
 					}
 					atomic.AddUint32(&ScannerState.runningMulticallRequests, ^uint32(0))
+					atomic.AddUint64(&ScannerState.completedMulticallRequests, 1)
 				}()
 			}
 		}
