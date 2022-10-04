@@ -2,6 +2,7 @@ package multicall
 
 import (
 	"context"
+	"log"
 	"math/big"
 	"os"
 
@@ -54,9 +55,17 @@ func GetBalances(addresses []string, ETHProvider ETHProviderInterface) ([]big.In
 	callmsg.To = &multicallContractAddress
 	callmsg.Data = calldata
 
-	rawresult, err := ethProvider.CallContract(context.Background(), callmsg, nil)
-	if err != nil {
-		panic(err)
+	var rawresult []byte
+	for {
+		rawresult, err = ethProvider.CallContract(context.Background(), callmsg, nil)
+		if err != nil {
+			if err.Error() == "execution aborted (timeout = 5s)" {
+				log.Default().Println("[!] Timout hit, retrying")
+				continue
+			}
+			panic(err)
+		}
+		break // no error, continue through the program
 	}
 
 	result, err := multicallContractABI.Methods["aggregate"].Outputs.UnpackValues(rawresult)
