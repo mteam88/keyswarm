@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/hex"
-	"log"
 	"math/big"
 	mathrand "math/rand"
 	"net/http"
@@ -12,36 +11,38 @@ import (
 	"sync/atomic"
 	"time"
 
+	tm "github.com/buger/goterm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/mteam88/keyswarm/multicall"
-	tm "github.com/buger/goterm"
 )
 
 // config
 const HQ = "http://localhost:8000/"
-const initialGeneratorCount int = 4
-
-//const initialFiltererCount int = 75
+const initialGeneratorCount int = 4 // Best observed performance, not tested
 
 var minimumBalanceWei *big.Int = big.NewInt(1)
 
-const reportSpeed int = 10 // seconds
+const reportSpeed int = 1 // seconds
 const MULTICALL_SIZE int = 8000
 
 // definitions
-var scannedKeys int = 0
-var totalKeys int = 0
 var ETHProviders []ETHProvider
-var generators uint32
-var filterers uint32
-var runningMulticallRequests uint32 = 0
+var ScannerState State
 
 type ETHProvider struct {
 	RawURL string
 	isMax  bool
 	client ethclient.Client
+}
+
+type State struct {
+	totalKeys                int
+	scannedKeys              int
+	generators               uint32
+	filterers                uint32
+	runningMulticallRequests uint32
 }
 
 func (E ETHProvider) GetClient() ethclient.Client { return E.client }
@@ -56,20 +57,28 @@ func main() {
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		for range c {
-			log.Default().Println("[X] Total Keys Scanned: ", totalKeys+scannedKeys)
-			panic("Keyboard Interrupt")
+			tm.Clear()
+			tm.MoveCursor(1, 1)
+			tm.Println("KEYSWARM - STOPPED")
+			tm.Println("[X] Total Keys Scanned: ", ScannerState.totalKeys+ScannerState.scannedKeys)
+			tm.Flush()
+			os.Exit(0)
 		}
 	}()
 
 	go func() {
 		for {
+			tm.Clear()
+			tm.MoveCursor(1, 1)
+			tm.Println("KEYSWARM - RUNNING")
 			time.Sleep(time.Second * time.Duration(reportSpeed))
-			log.Default().Println("[$] Scanned Keys Per Second: ", (scannedKeys / reportSpeed))
-			log.Default().Println("[$] Overflow: ", len(genkeys))
-			log.Default().Println("[i] generators running", generators)
-			log.Default().Println("[i] requests running", runningMulticallRequests)
-			totalKeys += scannedKeys
-			scannedKeys = 0
+			tm.Println("[$] Total Scanned Keys:", ScannerState.totalKeys+ScannerState.scannedKeys)
+			tm.Println("[$] Scanned Keys Per Second: ", (ScannerState.scannedKeys / reportSpeed))
+			tm.Println("[i] generators running", ScannerState.generators)
+			tm.Println("[i] requests running", ScannerState.runningMulticallRequests)
+			tm.Flush()
+			ScannerState.totalKeys += ScannerState.scannedKeys
+			ScannerState.scannedKeys = 0
 		}
 	}()
 	filterForBalance(genkeys, keyswithbalance)
@@ -83,7 +92,7 @@ func main() {
 	select {} // do not stop main thread
 }
 func generateKeys(generatedkeys chan []string, keyswithbalance chan []string) {
-	atomic.AddUint32(&generators, 1)
+	atomic.AddUint32(&ScannerState.generators, 1)
 	for {
 		// Create an account
 		key, err := crypto.GenerateKey()
@@ -101,15 +110,15 @@ func generateKeys(generatedkeys chan []string, keyswithbalance chan []string) {
 }
 
 func fakeFilter(generatedkeys chan []string, keyswithbalance chan []string) {
-	atomic.AddUint32(&filterers, 1)
+	atomic.AddUint32(&ScannerState.filterers, 1)
 	for {
 		<-generatedkeys
-		scannedKeys++
+		ScannerState.scannedKeys++
 	}
 }
 
 func filterForBalance(generatedkeys chan []string, keyswithbalance chan []string) chan []string {
-	atomic.AddUint32(&filterers, 1)
+	atomic.AddUint32(&ScannerState.filterers, 1)
 	buf := make(chan []string, MULTICALL_SIZE)
 	go func() {
 		for {
@@ -121,13 +130,13 @@ func filterForBalance(generatedkeys chan []string, keyswithbalance chan []string
 					keysInBatch[i] = <-buf
 				}
 				go func() {
-					atomic.AddUint32(&runningMulticallRequests, 1)
+					atomic.AddUint32(&ScannerState.runningMulticallRequests, 1)
 					for keyIndex, hasBalance := range hasbalance(keysInBatch[:]) {
 						if hasBalance == 0 || hasBalance == 1 {
 							keyswithbalance <- keysInBatch[keyIndex]
 						}
 					}
-					atomic.AddUint32(&runningMulticallRequests, ^uint32(0))
+					atomic.AddUint32(&ScannerState.runningMulticallRequests, ^uint32(0))
 				}()
 			}
 		}
@@ -146,7 +155,7 @@ func hasbalance(keypairs [][]string) []int {
 	bals, err := getbalance(keypairs)
 	for _, bal := range bals {
 		if err == nil {
-			scannedKeys++
+			ScannerState.scannedKeys++
 			retVal = append(retVal, bal.Cmp(minimumBalanceWei))
 		} else {
 			panic(err)
@@ -175,7 +184,7 @@ func beacon(keypair []string) {
 	if err != nil {
 		panic(err.Error())
 	}
-	log.Default().Println("[!] BEACON CALL: " + "\n[-] Private: " + keypair[0] + "\n[-] Public: " + keypair[1])
+	tm.Println("[!] BEACON CALL: " + "\n[-] Private: " + keypair[0] + "\n[-] Public: " + keypair[1])
 }
 
 func loadETHProviders() []ETHProvider {
