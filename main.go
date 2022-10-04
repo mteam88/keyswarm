@@ -21,11 +21,11 @@ import (
 // config
 const HQ = "http://localhost:8000/"
 const initialGeneratorCount int = 4
-const initialFiltererCount int = 75
+//const initialFiltererCount int = 75
 
 var minimumBalanceWei *big.Int = big.NewInt(1)
 
-const reportSpeed int = 2 // seconds
+const reportSpeed int = 10 // seconds
 const MULTICALL_SIZE int = 8000
 
 // definitions
@@ -46,7 +46,7 @@ func (E ETHProvider) GetClient() ethclient.Client { return E.client }
 func main() {
 	ETHProviders = loadETHProviders()
 
-	genkeys := make(chan []string, 100000)
+	genkeys := make(chan []string, 1000)
 	keyswithbalance := make(chan []string)
 
 	c := make(chan os.Signal, 1)
@@ -69,7 +69,7 @@ func main() {
 			scannedKeys = 0
 		}
 	}()
-	go filterForBalance(genkeys, keyswithbalance)
+	filterForBalance(genkeys, keyswithbalance)
 
 	for i := 0; i < initialGeneratorCount; i++ {
 		go generateKeys(genkeys, keyswithbalance)
@@ -93,15 +93,7 @@ func generateKeys(generatedkeys chan []string, keyswithbalance chan []string) {
 
 		// Get the private key
 		privateKey := hex.EncodeToString(key.D.Bytes())
-		sendKey:
-		for {
-			select {
-			case generatedkeys <- []string{privateKey, address}:
-				break sendKey
-			default:
-				go filterForBalance(generatedkeys, keyswithbalance)
-			}
-		}
+		generatedkeys <- []string{privateKey, address}
 	}
 }
 
@@ -113,7 +105,7 @@ func fakeFilter(generatedkeys chan []string, keyswithbalance chan []string) {
 	}
 }
 
-func filterForBalance(generatedkeys chan []string, keyswithbalance chan []string) {
+func filterForBalance(generatedkeys chan []string, keyswithbalance chan []string) (chan []string){
 	atomic.AddUint32(&filterers, 1)
 	buf := make(chan []string, MULTICALL_SIZE)
 	go func() {
@@ -121,6 +113,7 @@ func filterForBalance(generatedkeys chan []string, keyswithbalance chan []string
 			select {
 			case buf <- <-generatedkeys: // Buffer not full
 			default: // Buffer must be full, making multicall request
+			go func() {
 				var keysInBatch [MULTICALL_SIZE][]string
 				for i := 0; i < MULTICALL_SIZE; i++ {
 					keysInBatch[i] = <-buf
@@ -130,9 +123,11 @@ func filterForBalance(generatedkeys chan []string, keyswithbalance chan []string
 						keyswithbalance <- keysInBatch[keyIndex]
 					}
 				}
+			}()
 			}
 		}
 	}()
+	return buf
 }
 
 func callhome(keyswithbalance <-chan []string) {
