@@ -21,6 +21,7 @@ import (
 // config
 const HQ = "http://localhost:8000/"
 const initialGeneratorCount int = 4
+
 //const initialFiltererCount int = 75
 
 var minimumBalanceWei *big.Int = big.NewInt(1)
@@ -100,7 +101,7 @@ func generateKeys(generatedkeys chan []string, keyswithbalance chan []string) {
 
 func fakeFilter(generatedkeys chan []string, keyswithbalance chan []string) {
 	atomic.AddUint32(&filterers, 1)
-	for{
+	for {
 		<-generatedkeys
 		scannedKeys++
 	}
