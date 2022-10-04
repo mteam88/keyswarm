@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/mteam88/keyswarm/multicall"
+	tm "github.com/buger/goterm"
 )
 
 // config

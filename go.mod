@@ -3,6 +3,7 @@ module github.com/mteam88/keyswarm
 go 1.19
 
 require (
+	github.com/buger/goterm v1.0.4
 	github.com/ethereum/go-ethereum v1.10.25
 	github.com/joho/godotenv v1.4.0
 )
