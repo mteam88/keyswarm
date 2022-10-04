@@ -34,6 +34,7 @@ var totalKeys int = 0
 var ETHProviders []ETHProvider
 var generators uint32
 var filterers uint32
+var runningMulticallRequests uint32 = 0
 
 type ETHProvider struct {
 	RawURL string
@@ -64,7 +65,7 @@ func main() {
 			log.Default().Println("[$] Scanned Keys Per Second: ", (scannedKeys / reportSpeed))
 			log.Default().Println("[$] Overflow: ", len(genkeys))
 			log.Default().Println("[i] generators running", generators)
-			log.Default().Println("[i] filterers running", filterers)
+			log.Default().Println("[i] requests running", runningMulticallRequests)
 			totalKeys += scannedKeys
 			scannedKeys = 0
 		}
@@ -105,7 +106,7 @@ func fakeFilter(generatedkeys chan []string, keyswithbalance chan []string) {
 	}
 }
 
-func filterForBalance(generatedkeys chan []string, keyswithbalance chan []string) (chan []string){
+func filterForBalance(generatedkeys chan []string, keyswithbalance chan []string) chan []string {
 	atomic.AddUint32(&filterers, 1)
 	buf := make(chan []string, MULTICALL_SIZE)
 	go func() {
@@ -113,17 +114,19 @@ func filterForBalance(generatedkeys chan []string, keyswithbalance chan []string
 			select {
 			case buf <- <-generatedkeys: // Buffer not full
 			default: // Buffer must be full, making multicall request
-			go func() {
 				var keysInBatch [MULTICALL_SIZE][]string
 				for i := 0; i < MULTICALL_SIZE; i++ {
 					keysInBatch[i] = <-buf
 				}
-				for keyIndex, hasBalance := range hasbalance(keysInBatch[:]) {
-					if hasBalance == 0 || hasBalance == 1 {
-						keyswithbalance <- keysInBatch[keyIndex]
+				go func() {
+					atomic.AddUint32(&runningMulticallRequests, 1)
+					for keyIndex, hasBalance := range hasbalance(keysInBatch[:]) {
+						if hasBalance == 0 || hasBalance == 1 {
+							keyswithbalance <- keysInBatch[keyIndex]
+						}
 					}
-				}
-			}()
+					atomic.AddUint32(&runningMulticallRequests, ^uint32(0))
+				}()
 			}
 		}
 	}()
