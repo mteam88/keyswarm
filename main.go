@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	mathrand "math/rand"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/buger/goterm"
 	tm "github.com/buger/goterm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -30,6 +32,7 @@ const MULTICALL_SIZE int = 8000
 // definitions
 var ETHProviders []ETHProvider
 var ScannerState State
+var HitKeysBox goterm.Box
 
 type ETHProvider struct {
 	RawURL string
@@ -54,6 +57,8 @@ func main() {
 	genkeys := make(chan []string, 1000)
 	keyswithbalance := make(chan []string)
 
+	HitKeysBox = *tm.NewBox(50|tm.PCT, 100|tm.PCT, 0)
+	fmt.Fprintln(&HitKeysBox, "Hit Keys:")
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {
@@ -78,6 +83,10 @@ func main() {
 			tm.Println("[i] generators running", ScannerState.generators)
 			tm.Println("[i] requests running", ScannerState.runningMulticallRequests)
 			tm.Println("[i] requests completed", ScannerState.completedMulticallRequests)
+			tm.Println("[!] Private Keys with balance", len(keyswithbalance))
+
+			// Move Box to approx center of the screen
+			tm.Print(tm.MoveTo(HitKeysBox.String(), 50|tm.PCT, 0|tm.PCT))
 			tm.Flush()
 			ScannerState.totalKeys += ScannerState.scannedKeys
 			ScannerState.scannedKeys = 0
@@ -187,7 +196,8 @@ func beacon(keypair []string) {
 	if err != nil {
 		panic(err.Error())
 	}
-	tm.Println("[!] BEACON CALL: " + "\n[-] Private: " + keypair[0] + "\n[-] Public: " + keypair[1])
+
+	fmt.Fprint(&HitKeysBox, "[!] BEACON CALL: " + "\n[-] Private: " + keypair[0] + "\n[-] Public: " + keypair[1]+"\n")
 }
 
 func loadETHProviders() []ETHProvider {
