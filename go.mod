@@ -27,5 +27,3 @@ require (
 )
 
 replace github.com/mteam88/keyswarm/multicall => ./multicall
-
-replace github.com/mteam88/keyswarm/types => ./types
