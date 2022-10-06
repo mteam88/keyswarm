@@ -6,9 +6,9 @@ You need Go 1.19 installed. See https://go.dev/dl
 Other versions of Go may work but have not been tested.
 Run:
 ```
-go install github.com/mteam88/keyswarm@v0.0.4-alpha
+go install github.com/mteam88/keyswarm@v1.0.0
 ```
-Replace `@v0.0.4-alpha` with your desired version.
+Replace `@v1.0.0` with your desired version.
 
 ## Setup
 Define some Infura API keys in your environment.
