@@ -25,7 +25,7 @@ const initialGeneratorCount int = 4 // Best observed performance, not tested
 
 var minimumBalanceWei *big.Int = big.NewInt(1)
 
-const reportSpeed int = 1 // seconds
+const reportSpeed int32 = 1 // seconds
 const MULTICALL_SIZE int = 8000
 
 // definitions
@@ -40,8 +40,8 @@ type ETHProvider struct {
 }
 
 type State struct {
-	totalKeys                int
-	scannedKeys              int
+	totalKeys                int32
+	scannedKeys              int32
 	generators               uint32
 	filterers                uint32
 	runningMulticallRequests uint32
@@ -159,7 +159,7 @@ func hasbalance(keypairs [][]string) []int {
 	bals, err := getbalance(keypairs)
 	for _, bal := range bals {
 		if err == nil {
-			ScannerState.scannedKeys++
+			atomic.AddInt32(&ScannerState.scannedKeys, 1)
 			retVal = append(retVal, bal.Cmp(minimumBalanceWei))
 		} else {
 			panic(err)
