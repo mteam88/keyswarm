@@ -1,5 +1,8 @@
 # keyswarm
-Omni-language ethereum key guesser.
+Ethereum key guesser.
+Created as a practice project.
+
+It will never find any keys... Or will it?
 
 ## Installation
 You need Go 1.19 installed. See https://go.dev/dl
@@ -11,7 +14,7 @@ go install github.com/mteam88/keyswarm@v1.0.0
 Replace `@v1.0.0` with your desired version.
 
 ## Setup
-Define some Infura API keys in your environment.
+Define some Infura API keys in your environment. You will need multiple to avoid rate limiting.
 Example .env file:
 ```
 INFURA_KEYS=<ONE KEY HERE>,<ANOTHER KEY>,<JUST A COMMA SEPERATING KEYS>,<INFURA.IO EVERYONE>
